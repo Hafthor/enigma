@@ -39,7 +39,7 @@ public static class Program {
         var sw = Stopwatch.GetTimestamp();
         // default settings
         string[] rs = ["I~1~1", "II~1~1", "III~1~1"];
-        string r = "A", p = "ETW";
+        string r = "B", p = "ETW";
         string s = "DER SCHNELLE BRAUNE FUCHS SPRINGT UBER DEN FAULEN HUND";
         if (args.Length < 3) {
             Console.WriteLine("Usage: enigma plugboard [rotor[~pos[~rp]]...] reflector message");
@@ -64,6 +64,51 @@ public static class Program {
             new Rotor(rand, x.p, x.r) : new(x.x, x.p, x.r)).ToArray();
         Reflector reflector = r == "random" || r.StartsWith("random~") ? new(rand) : new(r);
         Enigma enigma = new(plugboard, new(rotors), reflector);
+
+        Console.WriteLine("               p 3 2 1 | 1 2 3 p");
+        char c = 'D';
+        Console.Write($"Starting with {c} ");
+        enigma.RotorSet.Advance();
+        c = enigma.Plugboard.Translate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[2].Translate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[1].Translate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[0].Translate(c); Console.Write($"{c} ");
+        c = enigma.Reflector.Translate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[0].ReverseTranslate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[1].ReverseTranslate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[2].ReverseTranslate(c); Console.Write($"{c} ");
+        c = enigma.Plugboard.ReverseTranslate(c); Console.WriteLine($"{c}");
+        if (c != 'M') return 1;
+        
+        c = 'E';
+        Console.Write($"Starting with {c} ");
+        enigma.RotorSet.Advance();
+        c = enigma.Plugboard.Translate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[2].Translate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[1].Translate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[0].Translate(c); Console.Write($"{c} ");
+        c = enigma.Reflector.Translate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[0].ReverseTranslate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[1].ReverseTranslate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[2].ReverseTranslate(c); Console.Write($"{c} ");
+        c = enigma.Plugboard.ReverseTranslate(c); Console.WriteLine($"{c}");
+        if (c != 'L') return 1;
+        
+        c = 'R';
+        Console.Write($"Starting with {c} ");
+        enigma.RotorSet.Advance();
+        c = enigma.Plugboard.Translate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[2].Translate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[1].Translate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[0].Translate(c); Console.Write($"{c} ");
+        c = enigma.Reflector.Translate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[0].ReverseTranslate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[1].ReverseTranslate(c); Console.Write($"{c} ");
+        c = enigma.RotorSet.Rotors[2].ReverseTranslate(c); Console.Write($"{c} ");
+        c = enigma.Plugboard.ReverseTranslate(c); Console.WriteLine($"{c}");
+        if (c != 'X') return 1;
+        
+        enigma.Reset();
         Console.WriteLine($"Plugboard..: {ShowTranslate(p, enigma.Plugboard)}");
         for (int i = 0; i < rps.Length; i++)
             Console.WriteLine($"Rotor {i} @{rps[i].p + 1:D2}: {ShowTranslate(rps[i].x, enigma.RotorSet.Rotors[i])}");

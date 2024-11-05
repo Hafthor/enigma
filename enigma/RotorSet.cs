@@ -16,8 +16,8 @@ public class RotorSet(Rotor[] rotors) {
     }
     
     public bool Advance() {
-        foreach (var rotor in rotors)
-            if (!rotor.Advance())
+        for (int i = rotors.Length - 1; i >= 0; i--)
+            if (!rotors[i].Advance())
                 return false;
         return true;
     }

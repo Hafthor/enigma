@@ -30,38 +30,43 @@ public static class Program {
         { "ETW", /****/"ABCDEFGHIJKLMNOPQRSTUVWXYZ" }, // Enigma I
     };
 
-    // Note: Have not validated the correctness of this Enigma machine simulator yet
+    // Note: This Enigma machine simulator does not encrypt/decrypt properly yet
+    //             3 2 1 | 1 2 3
+    // D should go I X R B W M M
+    // E should go A A E Q H L L
+    // R should go H U A Y O Y X
     public static int Main(string[] args) {
         var sw = Stopwatch.GetTimestamp();
         // default settings
-        string r1 = "I~1", r2 = "II~1", r3 = "III~1", r = "A", p = "ETW";
+        string[] rs = ["I~1~1", "II~1~1", "III~1~1"];
+        string r = "A", p = "ETW";
         string s = "DER SCHNELLE BRAUNE FUCHS SPRINGT UBER DEN FAULEN HUND";
-        if (args.Length != 6) {
-            Console.WriteLine("Usage: enigma plugboard rotor1[~pos] rotor2[~pos] rotor3[~pos] reflector message");
-            Console.WriteLine("Example: enigma C V~6 III~26 II~10 B");
-            Console.WriteLine($"Default: enigma {p} {r1} {r2} {r3} {r} '{s}'");
-            Console.WriteLine("You may instead specify the 26 character substitution for any component");
+        if (args.Length < 3) {
+            Console.WriteLine("Usage: enigma plugboard [rotor[~pos[~rp]]...] reflector message");
+            Console.WriteLine("Example: enigma C V~6~19 III~26~4 II~10~20 B 'HELLO'");
+            Console.WriteLine($"Default: enigma {p} {string.Join(" ", rs)} {r} '{s}'");
+            Console.WriteLine($"You may instead specify the full {SBox.Size} character substitution for any component");
             if (args.Length != 0) return 1;
             Console.WriteLine();
         } else {
             p = args[0];
-            r1 = args[1];
-            r2 = args[2];
-            r3 = args[3];
-            r = args[4];
-            s = args[5];
+            rs = args[1..^2];
+            r = args[^2];
+            s = args[^1];
         }
         p = ParsePlugboard(p);
-        (r1, int p1) = ParseRotor(r1);
-        (r2, int p2) = ParseRotor(r2);
-        (r3, int p3) = ParseRotor(r3);
+        var rps = rs.Select(ParseRotor).ToArray();
         r = ParseReflector(r);
-
-        Enigma enigma = new(new(p), new([new(r1, p1), new(r2, p2), new(r3, p3)]), new(r));
+        Random rand = new();
+        Plugboard plugboard = p == "random" || p.StartsWith("random~") ? 
+            new(rand, ParseRandom(p, SBox.Size / 2)) : new(p);
+        Rotor[] rotors = rps.Select(x => x.x == "random" || x.x.StartsWith("random~") ? 
+            new Rotor(rand, x.p, x.r) : new(x.x, x.p, x.r)).ToArray();
+        Reflector reflector = r == "random" || r.StartsWith("random~") ? new(rand) : new(r);
+        Enigma enigma = new(plugboard, new(rotors), reflector);
         Console.WriteLine($"Plugboard..: {ShowTranslate(p, enigma.Plugboard)}");
-        Console.WriteLine($"Rotor 1 @{p1 + 1:D2}: {ShowTranslate(r1)}");
-        Console.WriteLine($"Rotor 2 @{p2 + 1:D2}: {ShowTranslate(r2)}");
-        Console.WriteLine($"Rotor 3 @{p3 + 1:D2}: {ShowTranslate(r3)}");
+        for (int i = 0; i < rps.Length; i++)
+            Console.WriteLine($"Rotor {i} @{rps[i].p + 1:D2}: {ShowTranslate(rps[i].x, enigma.RotorSet.Rotors[i])}");
         Console.WriteLine($"Reflector..: {ShowTranslate(r, enigma.Reflector)}");
         Console.WriteLine($"Message....: {s} ({s.Count(char.IsLetter)} letters)");
         Console.WriteLine($"Repeating @: {CalcRepeating(s.Count(char.IsLetter))}");
@@ -69,20 +74,28 @@ public static class Program {
         var pos = enigma.RotorSet.Positions.Select(p => (p + 1).ToString("D2"));
         Console.WriteLine($"Ending pos.: {string.Join(",", pos)}");
 
+        int ParseRandom(string s, int def) {
+            if (s == "random") return def;
+            var ss = s.Split('~');
+            if (ss.Length != 2) throw new ArgumentException("Invalid random format");
+            if (!int.TryParse(ss[1], out int n)) throw new ArgumentException("Invalid random count");
+            return n;
+        }
+
         string ShowTranslate(string x, SBox sbox = null) {
-            string warn = sbox?.IsReflecting == false ? " Warning: not reflecting" : "";
+            string warn = sbox is Rotor rotor ? $" Ring pos={rotor.RingPosition + 1:D2}" :
+                sbox?.IsReflecting == false ? " Warning: not reflecting" : "";
             foreach (var (k, v) in Rotors)
                 if (v == x)
                     return $"{x} ({k}){warn}";
             return $"{x}{warn}";
         }
 
-        int CalcRepeating(int n) {
-            int p = 26 * 26 * 26;
-            for (; n % 2 == 0 && p % 2 == 0; n /= 2) p /= 2;
-            for (; n % 13 == 0 && p % 13 == 0; n /= 13) p /= 13;
-            return p;
-        }
+        int CalcRotorCombinations() => enigma.RotorSet.Rotors.Aggregate(1, (a, _) => a * SBox.Size);
+
+        int CalcRepeating(int n) => CalcRotorCombinations() / Gcd(n, CalcRotorCombinations());
+
+        int Gcd(int a, int b) => b == 0 ? a : Gcd(b, a % b);
 
         enigma.Reset();
         HashSet<string> set = new();
@@ -90,7 +103,8 @@ public static class Program {
             var savePos = enigma.RotorSet.Positions;
             string x = enigma.Translate(s);
             if (!set.Add(x)) {
-                Console.WriteLine("Dup found @: " + rep + " reps, 26^3/reps=" + ((26.0 * 26 * 26) / rep));
+                int pr = CalcRotorCombinations() / rep;
+                Console.WriteLine($"Dup found @: {rep} reps, {SBox.Size}^{enigma.RotorSet.Rotors.Length}/reps={pr}");
                 break;
             }
             // check if the same character is the same in the original and the encrypted string
@@ -104,7 +118,7 @@ public static class Program {
             }
             enigma.RotorSet.Positions = savePos;
             string n = enigma.Translate(x);
-            if (s != n) Console.WriteLine("Error......: " + n + " <= Encryption/decryption round trip failed @ " + rep);
+            if (s != n) Console.WriteLine($"Error......: {n} <= Encryption/decryption round trip failed @ {rep}");
         }
         Console.WriteLine($"Exec time..: {Stopwatch.GetElapsedTime(sw)}");
 
@@ -117,16 +131,28 @@ public static class Program {
         return 0;
     }
 
-    public static (string, int) ParseRotor(string s) {
+    public static (string x, int p, int r) ParseRotor(string s) {
+        if (s == "random" || s.StartsWith("random~")) return (s, 0, 0);
         var ss = s.Split('~');
-        if (ss.Length > 2) throw new ArgumentException("Invalid rotor format");
-        int pos = 1;
+        if (ss.Length > 3) throw new ArgumentException("Invalid rotor format");
+        int pos = 1, rpos = 1;
         if (ss.Length > 1 && !int.TryParse(ss[1], out pos)) throw new ArgumentException("Invalid rotor position");
-        if (pos is < 1 or > 26) throw new ArgumentException("Rotor position must be between 1 and 26");
-        return (ParseReflector(ss[0]), pos - 1);
+        if (pos is < 1 or > SBox.Size)
+            throw new ArgumentException($"Rotor position must be between 1 and {SBox.Size}");
+        if (ss.Length > 2 && !int.TryParse(ss[2], out rpos)) throw new ArgumentException("Invalid rotor ring position");
+        if (rpos is < 1 or > SBox.Size)
+            throw new ArgumentException($"Rotor ring position must be between 1 and {SBox.Size}");
+        return (ParseReflector(ss[0]), pos - 1, rpos - 1);
     }
 
-    public static string ParseReflector(string s) => s.Length == 26 ? s : Rotors[s];
+    public static string ParseReflector(string s) {
+        if (s == "random" || s.StartsWith("random~")) return s;
+        if (Rotors.TryGetValue(s, out string r)) return r;
+        if (s.Length != SBox.Size)
+            throw new ArgumentException(
+                $"Reflector must be {SBox.Size} characters long or one of [{string.Join(", ", Rotors.Keys)}]");
+        return s;
+    }
 
     public static string ParsePlugboard(string s) => ParseReflector(s == "" ? "ETW" : s);
 }

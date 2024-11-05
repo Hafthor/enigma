@@ -1,7 +1,7 @@
 namespace enigma;
 
 public class Reflector : SBox {
-    public Reflector(Random rand) : base(rand, 13) {}
+    public Reflector(Random rand) : base(rand, Size/2) {}
 
     public Reflector(string s) : base(s) {
         if (!IsReflecting) throw new ArgumentException("must be a reflecting reflector");

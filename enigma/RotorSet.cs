@@ -4,20 +4,16 @@ public class RotorSet(Rotor[] rotors) {
     public Rotor[] Rotors => rotors;
 
     public char Translate(char c) {
-        foreach (var rotor in rotors)
-            c = rotor.Translate(c);
+        for (int i = rotors.Length - 1; i >= 0; i--)
+            c = rotors[i].Translate(c);
         return c;
     }
 
     public char ReverseTranslate(char c) {
-        for (int i = rotors.Length - 1; i >= 0; i--)
-            c = rotors[i].ReverseTranslate(c);
+        foreach (var rotor in rotors)
+            c = rotor.ReverseTranslate(c);
         return c;
     }
-
-    public string Translate(string s) => new(s.Select(Translate).ToArray());
-    
-    public string ReverseTranslate(string s) => new(s.Select(ReverseTranslate).ToArray());
     
     public bool Advance() {
         foreach (var rotor in rotors)
